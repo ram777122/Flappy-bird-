@@ -1,0 +1,167 @@
+import pygame
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Screen dimensions
+CANVAS_WIDTH = 400
+CANVAS_HEIGHT = 600
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (135, 206, 235)
+GREEN = (46, 204, 113)
+GOLD = (255, 215, 0)
+ORANGE = (255, 165, 0)
+RED = (255, 0, 0)
+SEA_BLUE = (0, 105, 148)
+CLOUD_WHITE = (255, 255, 255, 200)
+
+# Bird settings
+BIRD_SIZE = 40
+GRAVITY = 0.5
+JUMP_STRENGTH = 6
+
+# Pipe settings
+PIPE_WIDTH = 60
+PIPE_GAP = 200
+
+# Initialize screen
+screen = pygame.display.set_mode((CANVAS_WIDTH, CANVAS_HEIGHT))
+pygame.display.set_caption("Flappy Bird")
+
+# Clock for frame rate
+clock = pygame.time.Clock()
+
+# Game state
+bird = {
+    "x": 50,
+    "y": CANVAS_HEIGHT // 2,
+    "velocity": 0,
+    "angle": 0
+}
+
+pipes = []
+clouds = []
+score = 0
+game_over = False
+frame = 0
+
+# Draw bird
+def draw_bird(x, y):
+    pygame.draw.circle(screen, GOLD, (x, y), BIRD_SIZE // 2)
+    pygame.draw.circle(screen, BLACK, (x + 10, y - 5), 3)
+    pygame.draw.polygon(screen, ORANGE, [(x + 15, y), (x + 25, y - 3), (x + 25, y + 3)])
+
+# Draw pipes
+def draw_pipe(x, top_height, bottom_height):
+    pygame.draw.rect(screen, GREEN, (x, 0, PIPE_WIDTH, top_height))
+    pygame.draw.rect(screen, GREEN, (x, CANVAS_HEIGHT - bottom_height, PIPE_WIDTH, bottom_height))
+
+# Draw clouds
+def draw_cloud(x, y, size):
+    pygame.draw.circle(screen, CLOUD_WHITE, (x, y), size)
+    pygame.draw.circle(screen, CLOUD_WHITE, (x + size, y), size * 1.2)
+    pygame.draw.circle(screen, CLOUD_WHITE, (x - size, y), size)
+
+# Reset game
+def reset_game():
+    global bird, pipes, clouds, score, frame, game_over
+    bird = {"x": 50, "y": CANVAS_HEIGHT // 2, "velocity": 0, "angle": 0}
+    pipes = []
+    clouds = []
+    score = 0
+    frame = 0
+    game_over = False
+
+# Main game loop
+running = True
+while running:
+    screen.fill(BLUE)
+
+    # Draw sea
+    pygame.draw.rect(screen, SEA_BLUE, (0, CANVAS_HEIGHT - 100, CANVAS_WIDTH, 100))
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                if game_over:
+                    reset_game()
+                else:
+                    bird["velocity"] = -JUMP_STRENGTH
+
+    if not game_over:
+        # Bird physics
+        bird["velocity"] += GRAVITY
+        bird["y"] += bird["velocity"]
+
+        # Spawn pipes
+        if frame % 120 == 0:
+            top_height = random.randint(50, CANVAS_HEIGHT - PIPE_GAP - 150)
+            bottom_height = CANVAS_HEIGHT - PIPE_GAP - top_height
+            pipes.append({"x": CANVAS_WIDTH, "top_height": top_height, "bottom_height": bottom_height})
+
+        # Spawn clouds
+        if frame % 180 == 0:
+            cloud_x = CANVAS_WIDTH
+            cloud_y = random.randint(50, CANVAS_HEIGHT - 200)
+            cloud_size = random.randint(20, 40)
+            clouds.append({"x": cloud_x, "y": cloud_y, "size": cloud_size})
+
+        # Move pipes and check for collisions
+        for pipe in pipes[:]:
+            pipe["x"] -= 3
+
+            # Collision detection
+            if (bird["x"] + BIRD_SIZE // 2 > pipe["x"] and 
+                bird["x"] - BIRD_SIZE // 2 < pipe["x"] + PIPE_WIDTH and 
+                (bird["y"] - BIRD_SIZE // 2 < pipe["top_height"] or 
+                 bird["y"] + BIRD_SIZE // 2 > CANVAS_HEIGHT - pipe["bottom_height"])):
+                game_over = True
+
+            # Remove off-screen pipes
+            if pipe["x"] + PIPE_WIDTH < 0:
+                pipes.remove(pipe)
+                score += 1
+
+        # Move clouds
+        for cloud in clouds[:]:
+            cloud["x"] -= 1
+            if cloud["x"] + cloud["size"] < 0:
+                clouds.remove(cloud)
+
+        # Check if bird hits the ground or flies too high
+        if bird["y"] + BIRD_SIZE // 2 > CANVAS_HEIGHT or bird["y"] - BIRD_SIZE // 2 < 0:
+            game_over = True
+
+        frame += 1
+
+    # Draw pipes
+    for pipe in pipes:
+        draw_pipe(pipe["x"], pipe["top_height"], pipe["bottom_height"])
+
+    # Draw clouds
+    for cloud in clouds:
+        draw_cloud(cloud["x"], cloud["y"], cloud["size"])
+
+    # Draw bird
+    draw_bird(bird["x"], bird["y"])
+
+    # Display score
+    font = pygame.font.Font(None, 36)
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+
+    # Game over message
+    if game_over:
+        game_over_text = font.render("Game Over! Press Space to Restart", True, RED)
+        screen.blit(game_over_text, (CANVAS_WIDTH // 2 - 180, CANVAS_HEIGHT // 2))
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
